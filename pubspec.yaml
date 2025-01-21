@@ -1,0 +1,45 @@
+name: event_management
+description: "A new Flutter project."
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.6 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.2
+  vibration: ^2.0.0
+  http: ^1.2.0
+  firebase_core: ^2.27.0
+  cloud_firestore: ^4.15.8
+  awesome_snackbar_content: ^0.1.4
+  loading_animation_widget: ^1.2.1
+  qr_code_scanner: ^1.0.1
+  mailer: ^6.1.2
+  qr_flutter: ^4.1.0
+  path_provider: ^2.1.4
+  image: ^3.0.1  # or the latest version
+  pdf: ^3.7.0
+  lottie: ^3.1.2
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - asset/photos/logo.png
+    - asset/gif/verified.json
+    - asset/gif/invalid.json
