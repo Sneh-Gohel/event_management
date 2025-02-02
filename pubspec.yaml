@@ -26,6 +26,9 @@ dependencies:
   image: ^3.0.1  # or the latest version
   pdf: ^3.7.0
   lottie: ^3.1.2
+  animations: ^2.0.11
+  file_picker: ^8.1.7
+  firebase_storage: ^11.6.5
 
 
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:event_management/screens/EventlistScreen.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:vibration/vibration.dart';
+import 'package:file_picker/file_picker.dart';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -27,6 +30,7 @@ class _AddEventScreen extends State<AddEventScreen>
   late Animation<double> _animation;
   bool loadingScreen = false;
   bool email = false;
+  var selectedFile;
 
   Future<void> _selectDate() async {
     DateTime? pickedDate = await showDatePicker(
@@ -148,6 +152,27 @@ class _AddEventScreen extends State<AddEventScreen>
         return;
       }
 
+      if (email && selectedFile == null) {
+        Vibration.vibrate(duration: 50);
+        const snackBar = SnackBar(
+          elevation: 0,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          content: AwesomeSnackbarContent(
+            title: 'Warning!',
+            message: 'Please make sure to select File.',
+            contentType: ContentType.warning,
+          ),
+        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(snackBar);
+        setState(() {
+          loadingScreen = false;
+        });
+        return;
+      }
+
       // add event in the firebase
 
       final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -155,43 +180,52 @@ class _AddEventScreen extends State<AddEventScreen>
         event_name_Controller.text: selectedDate, // Add a new field here
       });
 
-      DocumentReference docRef =
-          _firestore.collection(event_name_Controller.text).doc("EventDetails");
-      await docRef.set({
-        'name': event_name_Controller.text,
-        'date': selectedDate,
-        'time': selectedTime,
-        'description': textController.text,
-        'email': email,
-      });
+      // DocumentReference docRef =
+      //     _firestore.collection(event_name_Controller.text).doc("EventDetails");
+      // await docRef.set({
+      //   'name': event_name_Controller.text,
+      //   'date': selectedDate,
+      //   'time': selectedTime,
+      //   'description': textController.text,
+      //   'email': email,
+      // });
+      //
 
-      // await _firestore
-      //     .collection(event_name_Controller.text)
-      //     .doc('Student_details')
-      //     .collection('Regular')
-      //     .doc('None')
-      //     .set({});
-      //
-      // await _firestore
-      //     .collection(event_name_Controller.text)
-      //     .doc('Student_details')
-      //     .collection('Alumni')
-      //     .doc('None')
-      //     .set({});
-      //
-      // await _firestore
-      //     .collection(event_name_Controller.text)
-      //     .doc('Faculty_details')
-      //     .collection('List')
-      //     .doc('None')
-      //     .set({});
-      //
-      // await _firestore
-      //     .collection(event_name_Controller.text)
-      //     .doc('Guest_details')
-      //     .collection('List')
-      //     .doc('None')
-      //     .set({});
+      try {
+        print("Starting Upload...");
+
+        // Ensure Firebase is initialized
+        await Firebase.initializeApp();
+
+        // Sign in anonymously if needed
+        // await FirebaseAuth.instance.signInAnonymously();
+
+        File img = File(selectedFile);
+        if (!img.existsSync()) {
+          print("File does not exist: ${img.path}");
+          return;
+        }
+
+        // Get event name
+        String eventName = event_name_Controller.text.trim();
+        if (eventName.isEmpty) {
+          print("Error: Event name is empty.");
+          return;
+        }
+
+        // Upload path
+        final ref = FirebaseStorage.instance.ref().child('Passes/$eventName/pass.jpg');
+        UploadTask uploadTask = ref.putFile(img);
+
+        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+          print("Upload Progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes}");
+        });
+
+        await uploadTask;
+        print("Upload Completed!");
+      } catch (e) {
+        print("Error during upload: $e");
+      }
 
       const snackBar = SnackBar(
         elevation: 0,
@@ -210,29 +244,32 @@ class _AddEventScreen extends State<AddEventScreen>
       setState(() {
         loadingScreen = false;
       });
-      Navigator.pop(context); // Pop the current screen
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const EventlistScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(0.0, 1.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOut;
-
-            var tween =
-                Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-
-            return SlideTransition(
-              position: offsetAnimation,
-              child: child,
-            );
-          },
-        ),
-      );
+      // Navigator.pop(context); // Pop the current screen
+      // Navigator.pushReplacement(
+      //   context,
+      //   PageRouteBuilder(
+      //     pageBuilder: (context, animation, secondaryAnimation) =>
+      //         const EventlistScreen(),
+      //     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      //       const begin = Offset(0.0, 1.0);
+      //       const end = Offset.zero;
+      //       const curve = Curves.easeInOut;
+      //
+      //       var tween =
+      //           Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+      //       var offsetAnimation = animation.drive(tween);
+      //
+      //       return SlideTransition(
+      //         position: offsetAnimation,
+      //         child: child,
+      //       );
+      //     },
+      //   ),
+      // );
     } catch (e) {
+      setState(() {
+        loadingScreen = false;
+      });
       final snackBar = SnackBar(
         elevation: 0,
         behavior: SnackBarBehavior.floating,
@@ -254,6 +291,37 @@ class _AddEventScreen extends State<AddEventScreen>
       Vibration.vibrate(duration: 50);
       FocusScope.of(context).requestFocus(textFocusNode);
       return;
+    }
+  }
+
+  Future<void> _selectFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'png'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          selectedFile = result.files.single.path; // Store the file path
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Selected file: ${result.files.single.name}'),
+          ),
+        );
+      } else {
+        // User canceled the picker
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No file selected')),
+        );
+      }
+    } catch (e) {
+      // Handle errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error selecting file: $e')),
+      );
     }
   }
 
@@ -529,8 +597,114 @@ class _AddEventScreen extends State<AddEventScreen>
                     ],
                   ),
                 ),
+                // File Picker Section with Animation and Dynamic Height
+                email
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 20),
+                        child: AnimatedContainer(
+                          duration: const Duration(
+                              milliseconds: 300), // Smooth animation
+                          constraints: BoxConstraints(
+                            minHeight: 200, // Minimum height of the container
+                            maxHeight: selectedFile == null
+                                ? 200
+                                : MediaQuery.of(context).size.height * 0.5,
+                          ),
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: const Color(
+                                0xFFded9ee), // Light lavender background
+                            border: Border.all(
+                                color: const Color(0xFF7464bc),
+                                width: 2), // Border color matching theme
+                          ),
+                          child: Center(
+                            child: selectedFile == null
+                                ? ElevatedButton.icon(
+                                    onPressed:
+                                        _selectFile, // Call the file picker method
+                                    icon: const Icon(Icons.attach_file,
+                                        color: Color(0xFFded9ee)),
+                                    label: const Text("Choose File",
+                                        style: TextStyle(
+                                            color: Color(0xFFded9ee))),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(
+                                          0xFF7464bc), // Matches theme color
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20)),
+                                    ),
+                                  )
+                                : Stack(
+                                    children: [
+                                      Center(
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          child: Image.file(
+                                            File(selectedFile!),
+                                            fit: BoxFit
+                                                .contain, // Maintain aspect ratio and fit within bounds
+                                            width: double.infinity,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 10,
+                                        right: 10,
+                                        child: IconButton(
+                                          icon: const Icon(Icons.close,
+                                              color: Colors.red),
+                                          onPressed: () {
+                                            setState(() {
+                                              selectedFile =
+                                                  null; // Reset selection
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      )
+                    : const Center(),
+
+                selectedFile != null
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 30, vertical: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "Selected File: ${selectedFile!.split('/').last}",
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 16, color: Color(0xFF7464bc)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : email
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 30, vertical: 10),
+                            child: Text(
+                              "Please make sure that Image width and height is same as 1240 x 1748.",
+                              // overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 16, color: Color(0xFF7464bc)),
+                            ),
+                          )
+                        : const Center(),
+
                 Padding(
-                  padding: const EdgeInsets.only(top: 50, left: 50, right: 50),
+                  padding: const EdgeInsets.all(50),
                   child: ScaleTransition(
                     scale: _animation,
                     child: ElevatedButton(
@@ -579,7 +753,7 @@ class _AddEventScreen extends State<AddEventScreen>
                     ),
                   ),
                 )
-              : const Center()
+              : const Center(),
         ],
       ),
     );
