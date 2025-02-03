@@ -250,7 +250,7 @@ class _EventDetailsScreen extends State<EventDetailsScreen> {
         // Add both the document data and its ID to the map
         data['docId'] = doc.id; // Store document ID in the data map
         guestDetailsList.add(data); // Add the entire map to the list
-        if (data['attended'] =="yes") {
+        if (data['attended'] == "yes") {
           setState(() {
             guestAttendedCount++;
           });
@@ -436,6 +436,74 @@ class _EventDetailsScreen extends State<EventDetailsScreen> {
         loadingScreen = false;
       });
     }
+  }
+
+  void _showConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Allows closing by tapping outside
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: AnimatedContainer(
+            duration: Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              color: Color(0xFFded9ee),
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Are you sure?",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF7464bc),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        print("User selected: Yes");
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text(
+                        "Yes",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        print("User selected: No");
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7464bc),
+                      ),
+                      child: const Text(
+                        "No",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -1184,7 +1252,7 @@ class _EventDetailsScreen extends State<EventDetailsScreen> {
                             bottom: 50,
                           ),
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () => _showConfirmationDialog(context),
                             style: ElevatedButton.styleFrom(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20.0),

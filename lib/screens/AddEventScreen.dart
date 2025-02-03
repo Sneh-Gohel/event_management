@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:event_management/services/ImageUploadToDrive.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:event_management/screens/EventlistScreen.dart';
@@ -8,6 +9,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:vibration/vibration.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis_auth/auth_io.dart';
+import 'dart:convert';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -180,52 +184,53 @@ class _AddEventScreen extends State<AddEventScreen>
         event_name_Controller.text: selectedDate, // Add a new field here
       });
 
-      // DocumentReference docRef =
-      //     _firestore.collection(event_name_Controller.text).doc("EventDetails");
-      // await docRef.set({
-      //   'name': event_name_Controller.text,
-      //   'date': selectedDate,
-      //   'time': selectedTime,
-      //   'description': textController.text,
-      //   'email': email,
-      // });
-      //
+      ImageUploadToDrive ud = ImageUploadToDrive();
+      String downaload_id = await ud.uploadToGoogleDrive(File(selectedFile),event_name_Controller.text);
 
-      try {
-        print("Starting Upload...");
-
-        // Ensure Firebase is initialized
-        await Firebase.initializeApp();
-
-        // Sign in anonymously if needed
-        // await FirebaseAuth.instance.signInAnonymously();
-
-        File img = File(selectedFile);
-        if (!img.existsSync()) {
-          print("File does not exist: ${img.path}");
+      if(downaload_id == 'unsuccessful')
+        {
+          Vibration.vibrate(duration: 50);
+          const snackBar = SnackBar(
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            content: AwesomeSnackbarContent(
+              title: 'Error!',
+              message: 'Getting errors to upload the image.',
+              contentType: ContentType.failure,
+            ),
+          );
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(snackBar);
+          setState(() {
+            loadingScreen = false;
+          });
           return;
         }
 
-        // Get event name
-        String eventName = event_name_Controller.text.trim();
-        if (eventName.isEmpty) {
-          print("Error: Event name is empty.");
-          return;
-        }
-
-        // Upload path
-        final ref = FirebaseStorage.instance.ref().child('Passes/$eventName/pass.jpg');
-        UploadTask uploadTask = ref.putFile(img);
-
-        uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-          print("Upload Progress: ${snapshot.bytesTransferred}/${snapshot.totalBytes}");
+      DocumentReference docRef =
+          _firestore.collection(event_name_Controller.text).doc("EventDetails");
+      if(email)
+        {
+          await docRef.set({
+            'name': event_name_Controller.text,
+            'date': selectedDate,
+            'time': selectedTime,
+            'description': textController.text,
+            'email': email,
+            'download_id': downaload_id
+          });
+        } else {
+        await docRef.set({
+          'name': event_name_Controller.text,
+          'date': selectedDate,
+          'time': selectedTime,
+          'description': textController.text,
+          'email': email,
         });
-
-        await uploadTask;
-        print("Upload Completed!");
-      } catch (e) {
-        print("Error during upload: $e");
       }
+
 
       const snackBar = SnackBar(
         elevation: 0,
@@ -244,28 +249,28 @@ class _AddEventScreen extends State<AddEventScreen>
       setState(() {
         loadingScreen = false;
       });
-      // Navigator.pop(context); // Pop the current screen
-      // Navigator.pushReplacement(
-      //   context,
-      //   PageRouteBuilder(
-      //     pageBuilder: (context, animation, secondaryAnimation) =>
-      //         const EventlistScreen(),
-      //     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      //       const begin = Offset(0.0, 1.0);
-      //       const end = Offset.zero;
-      //       const curve = Curves.easeInOut;
-      //
-      //       var tween =
-      //           Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-      //       var offsetAnimation = animation.drive(tween);
-      //
-      //       return SlideTransition(
-      //         position: offsetAnimation,
-      //         child: child,
-      //       );
-      //     },
-      //   ),
-      // );
+      Navigator.pop(context); // Pop the current screen
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const EventlistScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(0.0, 1.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOut;
+
+            var tween =
+                Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            var offsetAnimation = animation.drive(tween);
+
+            return SlideTransition(
+              position: offsetAnimation,
+              child: child,
+            );
+          },
+        ),
+      );
     } catch (e) {
       setState(() {
         loadingScreen = false;
@@ -293,6 +298,8 @@ class _AddEventScreen extends State<AddEventScreen>
       return;
     }
   }
+
+
 
   Future<void> _selectFile() async {
     try {

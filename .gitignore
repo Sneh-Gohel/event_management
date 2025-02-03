@@ -45,3 +45,7 @@ android/app/google-services.json
 .vscode/launch.json
 android/app/src/google-services.json
 lib/lib.rar
+asset/event-management-8f571-abc8d9a0f91b.json
+asset/credentials.json
+asset/credentials.txt
+lib/services/ImageUploadToDrive.dart
