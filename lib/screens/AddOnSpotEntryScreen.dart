@@ -521,7 +521,13 @@ class DropdownButtonForGender extends StatefulWidget {
 }
 
 class _DropdownButtonForGender extends State<DropdownButtonForGender> {
-  String dropdownValue = genderList.first;
+  late String dropdownValue;
+
+  @override
+  void initState() {
+    super.initState();
+    dropdownValue = gender;  // Initialize with global variable
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -536,18 +542,17 @@ class _DropdownButtonForGender extends State<DropdownButtonForGender> {
       onChanged: (String? value) {
         setState(() {
           dropdownValue = value!;
-          gender = value;
+          gender = value;  // Update global variable
         });
       },
       items: genderList.map<DropdownMenuItem<String>>(
-        (String value) {
+            (String value) {
           return DropdownMenuItem<String>(
             value: value,
             child: Text(
               value,
-              overflow:
-                  TextOverflow.ellipsis, // Shows "..." when text overflows
-              maxLines: 1, // Limits to one line
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           );
         },
