@@ -3,12 +3,15 @@ import 'package:event_management/screens/EnrolledFacultyList.dart';
 import 'package:event_management/screens/EnrolledGuestList.dart';
 import 'package:event_management/screens/EnrolledOnSpotEntryList.dart';
 import 'package:event_management/screens/EnrolledStudentsCategory.dart';
+import 'package:event_management/screens/EventlistScreen.dart';
 import 'package:event_management/screens/QRScanningScreen.dart';
+import 'package:event_management/services/DeleteFileFromDrive.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:vibration/vibration.dart';
+import 'package:event_management/services/DeleteEvent.dart';
 import 'package:intl/intl.dart';
 
 class EventDetailsScreen extends StatefulWidget {
@@ -448,11 +451,11 @@ class _EventDetailsScreen extends State<EventDetailsScreen> {
             borderRadius: BorderRadius.circular(16.0),
           ),
           child: AnimatedContainer(
-            duration: Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
-            padding: EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
-              color: Color(0xFFded9ee),
+              color: const Color(0xFFded9ee),
               borderRadius: BorderRadius.circular(16.0),
             ),
             child: Column(
@@ -471,9 +474,54 @@ class _EventDetailsScreen extends State<EventDetailsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        print("User selected: Yes");
+                      onPressed: () async {
+                        setState(() {
+                          loadingScreen = true;
+                        });
+
+                        // if (widget.eventDetails['email']) {
+                        //   await deleteFromGoogleDrive(widget.eventDetails[
+                        //       'name']); // Delete file from google drive
+                        // }
+                        await deleteCollection(widget.eventDetails[
+                            'name']); // Wait until deletion completes
+                        await deleteField(
+                            "Events",
+                            "EventList",
+                            widget.eventDetails[
+                                'name']); // Wait until deletion completes
+
+                        setState(() {
+                          loadingScreen = false;
+                        });
+
+                        // Ensure widget is still mounted before calling Navigator
+                        if (!context.mounted) return;
+
+                        Navigator.pop(context); // Pop current screen
+                        Navigator.pushReplacement(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const EventlistScreen(),
+                            transitionsBuilder: (context, animation,
+                                secondaryAnimation, child) {
+                              const begin = Offset(0.0, 1.0);
+                              const end = Offset.zero;
+                              const curve = Curves.easeInOut;
+
+                              var tween = Tween(begin: begin, end: end)
+                                  .chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+
+                              return SlideTransition(
+                                position: offsetAnimation,
+                                child: child,
+                              );
+                            },
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
