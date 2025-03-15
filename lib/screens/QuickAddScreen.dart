@@ -13,6 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:vibration/vibration.dart';
 
 class QuickAddScreen extends StatefulWidget {
@@ -53,6 +54,9 @@ class _QuickAddScreen extends State<QuickAddScreen> {
   int start_count = 0;
   int end_count = 0;
   String docId = "";
+  bool scanQR = false;
+  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
+  late QRViewController controller;
 
   Future<void> _downloadImage() async {
     try {
@@ -535,6 +539,119 @@ class _QuickAddScreen extends State<QuickAddScreen> {
     });
   }
 
+  String extractSheetId(String url) {
+    RegExp regExp = RegExp(r"/d/([a-zA-Z0-9-_]+)/");
+    Match? match = regExp.firstMatch(url);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1)!;
+    }
+    return ""; // Return empty string if no match is found
+  }
+
+  Future<void> scan_url() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16.0),
+              topRight: Radius.circular(16.0),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.fromRGBO(222, 217, 238, 1),
+                      Color.fromRGBO(233, 230, 239, 0.89),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16.0),
+                    topRight: Radius.circular(16.0),
+                  ),
+                ),
+              ),
+              Center(
+                child: Container(
+                  height: 350,
+                  width: 300,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent, // Camera will be shown through
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: const Color.fromRGBO(
+                          116, 100, 188, 1), // Foreground color
+                      width: 4,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(30), // Rounded camera view
+                    child: QRView(
+                      key: qrKey,
+                      onQRViewCreated: _onQRViewCreated,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _onQRViewCreated(QRViewController controller) {
+    this.controller = controller;
+    controller.scannedDataStream.listen(
+      (scanData) {
+        setState(() {
+          String result = scanData.code!;
+          result = extractSheetIdFromQRData(result);
+          print(result);
+          setState(() {
+            sheet_id_Controller.text = result;
+          });
+        });
+        controller.pauseCamera();
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  String extractSheetIdFromQRData(String url) {
+    RegExp regExp = RegExp(r"/d/([a-zA-Z0-9-_]+)/");
+    Match? match = regExp.firstMatch(url);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1)!;
+    }
+    Vibration.vibrate(duration: 50);
+    const snackBar = SnackBar(
+      elevation: 0,
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.transparent,
+      content: AwesomeSnackbarContent(
+        title: 'Error!',
+        message: 'Invalid URL',
+        contentType: ContentType.failure,
+      ),
+    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snackBar);
+    setState(() {
+      loadingScreen = false;
+    });
+    return ""; // Return empty string if no match is found
+  }
+
   Future<void> _get_form_data() async {
     setState(() {
       loadingScreen = true;
@@ -560,16 +677,20 @@ class _QuickAddScreen extends State<QuickAddScreen> {
     } else {
       int count = quickAddDetails['count'];
       if (widget.searchFor == "Regular") {
-        data =
-            await fData.fetchData(regularStudentSheetID, count + 1, "Regular");
+        data = await fData.fetchData(
+            sheet_id_Controller.text, count + 1, "Regular");
       } else if (widget.searchFor == "Alumni") {
-        data = await fData.fetchData(alumniStudentSheetID, count + 1, "Alumni");
+        data = await fData.fetchData(
+            sheet_id_Controller.text, count + 1, "Alumni");
       } else if (widget.searchFor == "Faculty") {
-        data = await fData.fetchData(facultySheetID, count + 1, "Faculty");
+        data = await fData.fetchData(
+            sheet_id_Controller.text, count + 1, "Faculty");
       } else if (widget.searchFor == "Guest") {
-        data = await fData.fetchData(guestSheetID, count + 1, "Guest");
+        data =
+            await fData.fetchData(sheet_id_Controller.text, count + 1, "Guest");
       } else {
-        data = await fData.fetchData(onSpotEntrySheetID, count + 1, "OnSpot");
+        data = await fData.fetchData(
+            sheet_id_Controller.text, count + 1, "OnSpot");
       }
       if (data.length != 0) {
         setState(() {
@@ -903,7 +1024,7 @@ class _QuickAddScreen extends State<QuickAddScreen> {
           .collection('List')
           .get();
 
-      int i=0;
+      int i = 0;
       // Iterate through each document and update the specified field
       for (QueryDocumentSnapshot doc in querySnapshot.docs) {
         i++;
@@ -2741,7 +2862,13 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                         color: Colors.red,
                       ),
                     )
-                  : const Center(),
+                  : IconButton(
+                      onPressed: () async {
+                        await scan_url();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      color: const Color(0xFF7464bc), // Sets the icon color
+                    ),
             )
           ],
           iconTheme: const IconThemeData(
@@ -3025,7 +3152,7 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                       ],
                     ),
                   )
-                : const Center()
+                : const Center(),
           ],
         ),
       );
@@ -3083,7 +3210,13 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                         color: Colors.red,
                       ),
                     )
-                  : const Center(),
+                  : IconButton(
+                      onPressed: () async {
+                        await scan_url();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      color: const Color(0xFF7464bc), // Sets the icon color
+                    ),
             )
           ],
           iconTheme: const IconThemeData(
@@ -3425,7 +3558,13 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                         color: Colors.red,
                       ),
                     )
-                  : const Center(),
+                  : IconButton(
+                      onPressed: () async {
+                        await scan_url();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      color: const Color(0xFF7464bc), // Sets the icon color
+                    ),
             )
           ],
           iconTheme: const IconThemeData(
@@ -3767,7 +3906,13 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                         color: Colors.red,
                       ),
                     )
-                  : const Center(),
+                  : IconButton(
+                      onPressed: () async {
+                        await scan_url();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      color: const Color(0xFF7464bc), // Sets the icon color
+                    ),
             )
           ],
           iconTheme: const IconThemeData(
@@ -4109,7 +4254,13 @@ class _QuickAddScreen extends State<QuickAddScreen> {
                         color: Colors.red,
                       ),
                     )
-                  : const Center(),
+                  : IconButton(
+                      onPressed: () async {
+                        await scan_url();
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_outlined),
+                      color: const Color(0xFF7464bc), // Sets the icon color
+                    ),
             )
           ],
           iconTheme: const IconThemeData(
